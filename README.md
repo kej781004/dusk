@@ -19,18 +19,32 @@ stay open all night.
 ### The first-open warning
 
 Dusk is not signed with an Apple Developer certificate (those cost $99 a year),
-so macOS says it *"cannot be opened because Apple cannot check it for malicious
-software."* That message means nobody paid Apple, not that anything is wrong
-with the app. To get past it, **once**:
+so the first time you open it macOS says **"Apple could not verify Dusk is free
+of malware."** That message means nobody paid Apple, not that anything is known
+to be wrong with the app.
 
-1. Try to open Dusk. Dismiss the warning.
-2. Open **System Settings → Privacy & Security**.
-3. Scroll down. There is a line saying *"Dusk was blocked..."* — click
-   **Open Anyway**.
-4. Confirm. Dusk opens normally from then on.
+> **The dialog offers "Move to Trash" and "Done". Click _Done_.**
+> "Move to Trash" deletes the app you just downloaded.
 
-If you would rather not take that on faith, the whole app is in this repository
-and [builds from source](#build-it-yourself) in about a minute.
+Then, once:
+
+1. Open **System Settings → Privacy & Security**.
+2. Scroll to the bottom. There is a line saying *"Dusk was blocked to protect
+   your Mac"* — click **Open Anyway**.
+3. Confirm with Touch ID or your password.
+4. Open Dusk again. If a dialog appears this time it has an **Open** button —
+   click it. Dusk opens normally from then on.
+
+**Faster, if you are comfortable in Terminal.** macOS refuses the app because
+the download carries a "quarantine" flag. Removing it skips every dialog above:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/Dusk.app
+```
+
+If you would rather not take any of this on faith, the whole app is in this
+repository and [builds from source](#build-it-yourself) in about a minute — a
+copy you compile yourself is never quarantined, and never asks.
 
 ## Using it
 
