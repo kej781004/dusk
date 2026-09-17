@@ -11,7 +11,7 @@ stay open all night.
 
 ## Install
 
-1. Download `Dusk-1.0.0-macos-arm64.zip` from
+1. Download the `.zip` from
    [Releases](https://github.com/kej781004/dusk/releases/latest).
 2. Unzip it and drag **Dusk.app** into your **Applications** folder.
 3. Open it. **macOS will refuse the first time** — see below.
