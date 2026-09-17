@@ -21,8 +21,11 @@ final class DuskController {
     private static let watchdogInterval: TimeInterval = 0.4
     /// How long the screen stays yours after you reach for the brightness keys,
     /// before Dusk fades it back down. Long enough to read something and, if you
-    /// meant to stop entirely, to aim at the menu bar and switch Dusk off.
-    private static let peekDuration: TimeInterval = 5 * 60
+    /// meant to stop entirely, to aim at the menu bar and switch Dusk off — but
+    /// no longer than that: five minutes of a bright screen after a glance reads
+    /// as Dusk having given up, and the point of the dark switch is that the
+    /// screen goes back to black on its own.
+    private static let peekDuration: TimeInterval = 2 * 60
     /// Used when the level captured at dim time was already at the floor, so that
     /// turning Dusk off always leaves a visible screen.
     private static let fallbackRestoreLevel: Float = 0.5

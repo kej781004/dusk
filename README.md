@@ -59,7 +59,7 @@ around it means a countdown is running.
 ### When the screen goes black and you cannot find the icon
 
 Press the **brightness-up key (F2)**. Dusk notices and hands the screen back,
-even mid-fade. It dims again after five minutes, so turning Dusk off stays a
+even mid-fade. It dims again two minutes later, so turning Dusk off stays a
 deliberate act rather than a side effect of wanting to see.
 
 ## Why it asks for your password once
