@@ -4,8 +4,10 @@
 APP     := Dusk.app
 BUILD   := .build/release
 CONTENT := $(APP)/Contents
+VERSION := $(shell /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/Info.plist)
+ZIP     := Dusk-$(VERSION)-macos-arm64.zip
 
-.PHONY: all check build bundle sign install run stop clean
+.PHONY: all check build bundle sign install run stop clean release
 
 all: install
 
@@ -36,6 +38,14 @@ install: check sign
 
 run: install
 	open /Applications/$(APP)
+
+# The zip people download. `ditto` is used rather than `zip` because it is the
+# only one that preserves the bundle's symlinks and code signature intact —
+# a bundle rezipped with `zip` can arrive unopenable.
+release: check sign
+	rm -f $(ZIP)
+	ditto -c -k --sequesterRsrc --keepParent $(APP) $(ZIP)
+	@echo "packaged $(ZIP)"
 
 stop:
 	@pkill -x Dusk || true
