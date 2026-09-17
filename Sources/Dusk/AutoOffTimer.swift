@@ -1,6 +1,6 @@
 import Foundation
 
-/// Wall-clock countdown behind the "N분 동안 켜두기" presets. Deadline-based
+/// Wall-clock countdown behind the "Keep Awake For" presets. Deadline-based
 /// rather than interval-based, so the countdown stays honest if the machine
 /// sleeps and wakes mid-timer.
 ///

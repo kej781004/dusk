@@ -132,7 +132,7 @@ final class ThresholdSliderView: NSView {
         ]
 
         if value == 0 {
-            text.append(NSAttributedString(string: "자동으로 끄지 않음", attributes: [
+            text.append(NSAttributedString(string: "Never turn off automatically", attributes: [
                 .font: NSFont.menuFont(ofSize: 0),
                 .foregroundColor: NSColor.secondaryLabelColor,
             ]))
@@ -141,9 +141,8 @@ final class ThresholdSliderView: NSView {
                 .font: NSFont.boldSystemFont(ofSize: NSFont.systemFontSize),
                 .foregroundColor: NSColor.labelColor,
             ]
-            text.append(NSAttributedString(string: "배터리 ", attributes: plain))
+            text.append(NSAttributedString(string: "Turn off below ", attributes: plain))
             text.append(NSAttributedString(string: "\(value)%", attributes: emphasis))
-            text.append(NSAttributedString(string: " 아래에서 끄기", attributes: plain))
         }
 
         text.draw(at: NSPoint(x: trackLeft, y: Self.captionY))

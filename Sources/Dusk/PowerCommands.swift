@@ -8,10 +8,10 @@ enum PowerCommandError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .notPermitted:
-            return "sudoers 규칙이 없어 pmset을 실행할 수 없습니다."
+            return "Cannot run pmset: the sudoers rule is not installed."
         case .failed(let status, let message):
-            return message.isEmpty ? "pmset 실패 (종료 코드 \(status))"
-                                   : "pmset 실패 (종료 코드 \(status)): \(message)"
+            return message.isEmpty ? "pmset failed (exit code \(status))"
+                                   : "pmset failed (exit code \(status)): \(message)"
         }
     }
 }

@@ -186,8 +186,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             setIntent(false)
         } else {
             // A left click turns on in timer mode, the same countdown the
-            // "이만큼 켜두기" presets run. "계속" in the menu is still there for
-            // an indefinite on.
+            // "Keep Awake For" presets run. "Until Turned Off" in the menu is
+            // still there for an indefinite on.
             setIntent(true, timerMinutes: clickTimerMinutes)
         }
     }
@@ -325,7 +325,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         suspendedForBattery = false
         overrideBattery = false
         refreshStatusItem()
-        notify(title: "Dusk가 꺼졌습니다", body: "타이머가 끝났습니다.")
+        notify(title: "Dusk turned off", body: "The timer finished — going to sleep.")
         sleepAfterCountdown()
     }
 
@@ -433,11 +433,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.suspendedForBattery = suspending
             self.refreshStatusItem()
             if suspending {
-                self.notify(title: "Dusk가 꺼졌습니다",
-                            body: "배터리가 \(self.threshold)% 아래로 떨어졌습니다.")
+                self.notify(title: "Dusk turned off",
+                            body: "Battery dropped below \(self.threshold)%.")
             } else {
-                self.notify(title: "Dusk가 다시 켜졌습니다",
-                            body: "충전 중 — 잠자기 방지를 재개합니다.")
+                self.notify(title: "Dusk is back on",
+                            body: "Charging — keeping your Mac awake again.")
             }
 
             // State moved on; re-check against anything that arrived while we were
@@ -455,13 +455,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let stateTitle: String
         if suspendedForBattery {
-            stateTitle = "일시정지 (배터리 부족)"
+            stateTitle = "paused (battery low)"
         } else if !effectiveActive {
-            stateTitle = "꺼짐"
+            stateTitle = "off"
         } else if let remaining = autoOffTimer.remaining {
-            stateTitle = "켜짐 — \(formatRemaining(remaining)) 남음"
+            stateTitle = "on — \(formatRemaining(remaining)) left"
         } else {
-            stateTitle = "켜짐"
+            stateTitle = "on"
         }
         let stateItem = NSMenuItem(title: "Dusk: \(stateTitle)", action: nil, keyEquivalent: "")
         stateItem.isEnabled = false
@@ -476,12 +476,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // alongside the two that ride with it. These two are settings — they say
         // what a left click should engage, and flipping one is not a left click.
         menu.addItem(.separator())
-        menu.addItem(SwitchMenuItemView.item(title: "저전력 모드",
+        menu.addItem(SwitchMenuItemView.item(title: "Low Power Mode",
                                              isOn: engagesLowPower,
                                              isEnabled: true) { [weak self] on in
             self?.setPreference { $0.engagesLowPower = on }
         })
-        menu.addItem(SwitchMenuItemView.item(title: "화면 어둡게",
+        menu.addItem(SwitchMenuItemView.item(title: "Dim the Screen",
                                              isOn: engagesDark,
                                              isEnabled: controller.canDim) { [weak self] on in
             self?.setPreference { $0.engagesDark = on }
@@ -490,7 +490,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         // The only top-level item carrying an action: the submenu rows set their
         // own target, and the switch rows are view items with no action at all.
-        let quitItem = NSMenuItem(title: "Dusk 종료", action: #selector(menuQuit), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: "Quit Dusk", action: #selector(menuQuit), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
 
@@ -504,7 +504,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func keepAwakeSubmenuItem() -> NSMenuItem {
-        let parent = NSMenuItem(title: "이만큼 켜두기", action: nil, keyEquivalent: "")
+        let parent = NSMenuItem(title: "Keep Awake For", action: nil, keyEquivalent: "")
         let submenu = NSMenu()
 
         for value in durationOptions {
@@ -518,7 +518,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         submenu.addItem(.separator())
 
         // Tag 0 means "no countdown" — on until turned off.
-        let indefinite = NSMenuItem(title: "계속",
+        let indefinite = NSMenuItem(title: "Until Turned Off",
                                     action: #selector(menuKeepAwakeFor(_:)), keyEquivalent: "")
         indefinite.target = self
         indefinite.tag = 0
@@ -530,7 +530,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func autoOffSubmenuItem() -> NSMenuItem {
-        let parent = NSMenuItem(title: "배터리 낮으면 자동 끄기", action: nil, keyEquivalent: "")
+        let parent = NSMenuItem(title: "Turn Off When Battery Is Low", action: nil, keyEquivalent: "")
         let submenu = NSMenu()
         // The submenu holds nothing but the slider, which reports only when the
         // drag ends — a threshold committed on every step would re-evaluate the
@@ -543,13 +543,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func durationLabel(_ minutes: Int) -> String {
-        if minutes < 60 { return "\(minutes)분" }
+        if minutes < 60 { return "\(minutes) min" }
         let hours = minutes / 60
         let rest = minutes % 60
-        return rest == 0 ? "\(hours)시간" : "\(hours)시간 \(rest)분"
+        return rest == 0 ? "\(hours) hr" : "\(hours) hr \(rest) min"
     }
 
-    /// Rounded up to the next whole minute, so a live countdown never reads "0분"
+    /// Rounded up to the next whole minute, so a live countdown never reads "0 min"
     /// while Dusk is still on.
     private func formatRemaining(_ seconds: TimeInterval) -> String {
         durationLabel(max(1, Int((seconds / 60).rounded(.up))))
@@ -646,16 +646,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func offerPrivilegeSetup(completion: @escaping (Bool) -> Void) {
         let alert = NSAlert()
-        alert.messageText = "Dusk를 쓰려면 한 번만 권한이 필요합니다"
+        alert.messageText = "Dusk needs your permission, once"
         alert.informativeText = """
-        뚜껑을 닫아도 안 자게 하려면 `pmset disablesleep`을, 저전력 모드에는 \
-        `pmset lowpowermode`를 써야 하는데 둘 다 관리자만 바꿀 수 있습니다.
+        Staying awake with the lid closed needs `pmset disablesleep`, and Low \
+        Power Mode needs `pmset lowpowermode`. Only an administrator can change \
+        either one.
 
-        아래 버튼을 누르면 암호를 한 번 물어보고, 그 네 명령만 허용하는 규칙을 \
-        설치합니다. 그 뒤로는 암호 없이 바로 켜고 꺼집니다.
+        Setting up asks for your password once and installs a rule allowing \
+        exactly those four commands — nothing else. After that, Dusk switches \
+        on and off without asking again.
         """
-        alert.addButton(withTitle: "설정하기")
-        alert.addButton(withTitle: "나중에")
+        alert.addButton(withTitle: "Set Up")
+        alert.addButton(withTitle: "Not Now")
         NSApp.activate(ignoringOtherApps: true)
 
         guard alert.runModal() == .alertFirstButtonReturn else {
@@ -667,8 +669,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func installPrivilege(completion: @escaping (Bool) -> Void) {
         guard let script = Bundle.main.path(forResource: "install-sudoers", ofType: "sh") else {
-            present(title: "설치 스크립트를 찾지 못했습니다",
-                    body: "앱 번들 안에 install-sudoers.sh가 없습니다.")
+            present(title: "Could not find the setup script",
+                    body: "install-sudoers.sh is missing from the app bundle.")
             completion(false)
             return
         }
@@ -683,7 +685,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let error {
             // -128 is the user cancelling the password prompt; that needs no alert.
             if (error["NSAppleScriptErrorNumber"] as? Int) != -128 {
-                present(title: "권한 설치에 실패했습니다",
+                present(title: "Could not install the permission rule",
                         body: error["NSAppleScriptErrorMessage"] as? String ?? "\(error)")
             }
             completion(false)
@@ -694,8 +696,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // is permitted — see PowerCommands for why that question has no useful answer.
         PowerCommands.clearSleepDisabledAndCheckPermission { [weak self] granted in
             if !granted {
-                self?.present(title: "규칙이 아직 적용되지 않았습니다",
-                              body: "터미널에서 `sudo sh \(script)`를 직접 실행해 보세요.")
+                self?.present(title: "The rule is not in effect yet",
+                              body: "Try running `sudo sh \(script)` in Terminal.")
             }
             completion(granted)
         }
@@ -744,18 +746,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         button.image = StatusIcon.image(active: state.awake, timer: autoOffTimer.isRunning)
 
         if suspendedForBattery {
-            button.toolTip = "Dusk 일시정지 — 배터리가 \(threshold)% 아래입니다. 충전하면 재개합니다."
+            button.toolTip = "Dusk paused — battery is below \(threshold)%. It resumes while charging."
         } else if state.awake, let remaining = autoOffTimer.remaining {
-            button.toolTip = "Dusk 켜짐 — \(formatRemaining(remaining)) 뒤에 꺼집니다."
+            button.toolTip = "Dusk on — turns off in \(formatRemaining(remaining))."
         } else if state.awake {
-            button.toolTip = "Dusk 켜짐 — 뚜껑을 닫아도 안 잡니다."
+            button.toolTip = "Dusk on — your Mac stays awake with the lid closed."
         } else {
-            button.toolTip = "Dusk 꺼짐. 누르면 \(clickTimerMinutes)분 동안 켜집니다."
+            button.toolTip = "Dusk off. Click to stay awake for \(clickTimerMinutes) minutes."
         }
     }
 
     private func presentError(_ error: Error) {
-        present(title: "Dusk가 설정을 바꾸지 못했습니다", body: error.localizedDescription)
+        present(title: "Dusk could not change a setting", body: error.localizedDescription)
     }
 
     private func present(title: String, body: String) {
