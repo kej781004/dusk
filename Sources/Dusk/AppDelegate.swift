@@ -13,6 +13,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let lowPowerPreferenceKey = "engageLowPower"
     private let darkPreferenceKey = "engageDark"
     private let durationOptions = [15, 30, 60, 120]
+    /// How long a left click keeps Dusk on.
+    private let clickTimerMinutes = 20
+    /// Time given to DuskController's 0.8s restore fade before the Mac is put
+    /// to sleep at the end of a countdown.
+    private static let sleepSettleDelay: TimeInterval = 1.0
 
     /// The user's intent: do they want Dusk on?
     private var intent = false {
@@ -177,8 +182,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         if wantsMenu {
             showMenu()
+        } else if effectiveActive {
+            setIntent(false)
         } else {
-            setIntent(!effectiveActive)
+            // A left click turns on in timer mode, the same countdown the
+            // "이만큼 켜두기" presets run. "계속" in the menu is still there for
+            // an indefinite on.
+            setIntent(true, timerMinutes: clickTimerMinutes)
         }
     }
 
@@ -221,7 +231,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 // override. Turning on at a healthy charge leaves auto-off armed.
                 self.overrideBattery = on && self.isBelowFloor
                 if on, let minutes = timerMinutes {
-                    self.autoOffTimer.start(minutes: minutes)
+                    self.startCountdown(minutes: minutes)
                 } else {
                     self.autoOffTimer.cancel()
                 }
@@ -230,6 +240,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.presentError(error)
             }
         }
+    }
+
+    /// Arms the countdown.
+    ///
+    /// Notification permission is asked here rather than at the click that leads
+    /// here, so that it is asked exactly when a countdown really starts: after
+    /// any privilege prompt has been answered, and never for a click that failed
+    /// to turn Dusk on. Asking at click time put the system permission dialog on
+    /// screen at the same moment as the modal sudoers alert on a fresh install.
+    private func startCountdown(minutes: Int) {
+        requestNotificationAuthorization()
+        autoOffTimer.start(minutes: minutes)
     }
 
     /// Latest reading is on battery and under the configured floor.
@@ -304,6 +326,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         overrideBattery = false
         refreshStatusItem()
         notify(title: "Dusk가 꺼졌습니다", body: "타이머가 끝났습니다.")
+        sleepAfterCountdown()
+    }
+
+    /// A countdown means "hold the Mac up until this is done", so the end of one
+    /// puts the Mac to sleep rather than leaving it idling until some other
+    /// timeout catches it. Only the countdown ends this way: a manual off and
+    /// the low-battery auto-off both leave the machine as they found it — the
+    /// battery one especially, since it fires on a Mac whose lid may well be
+    /// open.
+    ///
+    /// The wait is for the screen, not for pmset. Turning off starts the 0.8s
+    /// restore fade and `apply` returns before it lands, so sleeping straight
+    /// away would freeze the backlight part-way down — and macOS restores
+    /// whatever level it slept at, which is the dim-screen-on-wake trap the
+    /// sleep handling in DuskController exists to avoid.
+    private func sleepAfterCountdown() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.sleepSettleDelay) {
+            PowerCommands.sleepNow()
+        }
     }
 
     /// Re-runs the battery policy on a fixed beat for as long as the user wants
@@ -518,7 +559,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func menuKeepAwakeFor(_ sender: NSMenuItem) {
         let minutes = sender.tag
-        if minutes > 0 { requestNotificationAuthorization() }
 
         // Already on: just (re)arm the countdown, skipping a pmset round-trip that
         // would set a state the system is already in.
@@ -528,7 +568,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         if minutes > 0 {
-            autoOffTimer.start(minutes: minutes)
+            startCountdown(minutes: minutes)
         } else {
             autoOffTimer.cancel()
         }
@@ -710,7 +750,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else if state.awake {
             button.toolTip = "Dusk 켜짐 — 뚜껑을 닫아도 안 잡니다."
         } else {
-            button.toolTip = "Dusk 꺼짐. 누르면 켜집니다."
+            button.toolTip = "Dusk 꺼짐. 누르면 \(clickTimerMinutes)분 동안 켜집니다."
         }
     }
 

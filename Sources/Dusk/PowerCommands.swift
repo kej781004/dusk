@@ -126,6 +126,20 @@ enum PowerCommands {
         _ = run("/usr/bin/sudo", sudoFlags + ["/usr/bin/pmset", "-a", "lowpowermode", "0"])
     }
 
+    /// Puts the Mac to sleep now, for the end of a countdown.
+    ///
+    /// Needs no root and so stays out of the sudoers rule: `pmset sleepnow` is
+    /// allowed for any user, and that rule lists four exact commands precisely
+    /// so it cannot be stretched into running anything else.
+    ///
+    /// Ordering is free here. Everything in this enum runs on one serial queue,
+    /// so a sleep request queued behind `disablesleep 0` cannot overtake it —
+    /// which matters, because a Mac still holding `disablesleep` ignores the
+    /// request entirely.
+    static func sleepNow() {
+        queue.async { _ = run("/usr/bin/pmset", ["sleepnow"]) }
+    }
+
     // MARK: - Process plumbing
 
     private static func run(_ path: String,
