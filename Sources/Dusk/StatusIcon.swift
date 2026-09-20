@@ -1,46 +1,40 @@
 import AppKit
 
-/// The menu bar glyph: a laptop with a crescent moon cut into its screen —
-/// the same shape family as the app icon (see design/render_icon.py), just
-/// redrawn at menu-bar scale rather than shrunk from the 1024px master,
-/// which would read as a blurry smudge at 18pt.
+/// The menu bar glyph: a bold crescent moon, on its own — no laptop frame.
 ///
-/// The moon is a true hole, not a painted patch: the laptop body (screen +
-/// base) and the crescent (a big circle minus an offset smaller one) are all
-/// added as subpaths of one CGPath and filled with the even-odd rule, so the
-/// menu bar shows through the moon exactly as it shows through the gaps
-/// between letters in a font. That is what makes `isTemplate` rendering work
-/// correctly on the idle glyph — a painted patch would fight the system tint.
+/// The app icon is a laptop with a moon cut into its screen (see
+/// design/reference-crops/), and the first cut of this glyph shrank that
+/// same compound shape to 18pt. It looked fine zoomed in during review, but
+/// at true, unzoomed menu-bar size the screen rect, base bar and a thin
+/// crescent all competing for the same 18 physical pixels anti-aliased into
+/// a grey smudge — confirmed against a real screenshot, not assumed. A bare,
+/// much bolder crescent (proofed at true 18px in design/candidate_states.py)
+/// reads clearly at that size. This is also precedent, not invention: macOS's
+/// own Focus/Do Not Disturb glyph is a plain moon at exactly this scale.
+///
+/// The moon is a true hole, not a painted patch: the big circle and the
+/// offset smaller one are both added to one CGPath and filled with the
+/// even-odd rule, so the menu bar shows through the gap exactly the way it
+/// shows through the counter of a letter "e". That is what makes
+/// `isTemplate` rendering work correctly on the idle glyph — a painted patch
+/// would fight the system tint.
 enum StatusIcon {
     private static let size = NSSize(width: 18, height: 18)
+    private static let center = CGPoint(x: 9, y: 9)
 
-    // Geometry lives in an 18x18, y-up local space (AppKit's own convention),
-    // proofed against the approved reference at design/menubar-contact-sheet.png
-    // before being ported here — see design/preview_menubar.py.
-    private static let screenRect = CGRect(x: 3.6, y: 7.2, width: 10.7 - 3.6, height: 13.0 - 7.2)
-    private static let screenRadius: CGFloat = 0.55
-    private static let baseRect = CGRect(x: 2.6, y: 5.8, width: 11.7 - 2.6, height: 7.4 - 5.8)
-    private static let baseRadius: CGFloat = 0.4
-    private static let moonCircle = circle(at: CGPoint(x: 6.4, y: 10.4), radius: 2.05)
-    private static let cutCircle = circle(at: CGPoint(x: 7.4, y: 11.1), radius: 1.72)
+    // Bold on purpose — thin proportions matching the app-icon reference
+    // disappear at this size. Proofed at true 18px before being ported here.
+    private static let moonRadius: CGFloat = 6.6
+    private static let cutRadius: CGFloat = 4.9
+    private static let cutOffset = CGPoint(x: 3.4, y: -1.2)
 
-    private static let ringCircle = circle(at: CGPoint(x: 9, y: 9), radius: 7.4)
-    private static let ringWidth: CGFloat = 1.1
-
-    /// The proof states every circle as a centre and a radius; CoreGraphics
-    /// wants the bounding box.
-    private static func circle(at center: CGPoint, radius: CGFloat) -> CGRect {
-        CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
-    }
-
-    /// The glyph's own bounding-box centre: the laptop sits left and low of the
-    /// canvas centre (9,9), so the timer ring shrinks the glyph about this
-    /// point instead — scaling about the canvas would drift it off the ring.
-    private static let shapeCenter = CGPoint(x: 7.15, y: 9.4)
-    private static let timerScale: CGFloat = 0.8
-    private static let timerFit = CGAffineTransform(translationX: shapeCenter.x, y: shapeCenter.y)
-        .scaledBy(x: timerScale, y: timerScale)
-        .translatedBy(x: -shapeCenter.x, y: -shapeCenter.y)
+    private static let ringRadius: CGFloat = 7.6
+    private static let ringWidth: CGFloat = 1.15
+    /// Shrinks the moon in place so it clears the ring; the moon is already
+    /// centred on the canvas, so — unlike the old off-centre "∠" mark and the
+    /// laptop shape before it — this scales about the same point the ring
+    /// does, with no recentring needed.
+    private static let timerScale: CGFloat = 0.72
 
     /// Sampled from the approved app-icon reference (design/reference-3icons.png)
     /// so the menu bar and the app icon read as the same brand.
@@ -64,27 +58,34 @@ enum StatusIcon {
         }
     }
 
-    /// The laptop-minus-moon silhouette as one even-odd path. `fit` shrinks it
-    /// in place to clear the timer ring, and is the identity otherwise.
-    private static func silhouette(fit: CGAffineTransform) -> CGPath {
+    /// The crescent as one even-odd path: the big circle, minus an offset
+    /// smaller one. `scale` shrinks it in place about the canvas centre for
+    /// the timer ring; 1 otherwise.
+    private static func crescent(scale: CGFloat) -> CGPath {
+        let fit = CGAffineTransform(translationX: center.x, y: center.y)
+            .scaledBy(x: scale, y: scale)
+            .translatedBy(x: -center.x, y: -center.y)
         let path = CGMutablePath()
-        path.addRoundedRect(in: screenRect, cornerWidth: screenRadius, cornerHeight: screenRadius, transform: fit)
-        path.addRoundedRect(in: baseRect, cornerWidth: baseRadius, cornerHeight: baseRadius, transform: fit)
-        path.addEllipse(in: moonCircle, transform: fit)
-        path.addEllipse(in: cutCircle, transform: fit)
+        path.addEllipse(in: circle(at: center, radius: moonRadius), transform: fit)
+        path.addEllipse(in: circle(at: CGPoint(x: center.x + cutOffset.x, y: center.y + cutOffset.y),
+                                   radius: cutRadius), transform: fit)
         return path
+    }
+
+    private static func circle(at c: CGPoint, radius: CGFloat) -> CGRect {
+        CGRect(x: c.x - radius, y: c.y - radius, width: radius * 2, height: radius * 2)
     }
 
     private static func draw(active: Bool, timer: Bool) -> NSImage {
         let image = NSImage(size: size, flipped: false) { _ in
             guard let ctx = NSGraphicsContext.current?.cgContext else { return false }
 
-            ctx.addPath(silhouette(fit: timer ? timerFit : .identity))
+            ctx.addPath(crescent(scale: timer ? timerScale : 1))
             ctx.setFillColor((active ? brand : .black).cgColor)
             ctx.fillPath(using: .evenOdd)
 
             if timer {
-                ctx.addEllipse(in: ringCircle)
+                ctx.addEllipse(in: circle(at: center, radius: ringRadius))
                 ctx.setStrokeColor((active ? brandRingTint : .black).cgColor)
                 ctx.setLineWidth(ringWidth)
                 ctx.strokePath()
