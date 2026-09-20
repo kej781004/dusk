@@ -23,6 +23,7 @@ bundle: build
 	mkdir -p $(CONTENT)/MacOS $(CONTENT)/Resources
 	cp $(BUILD)/Dusk $(CONTENT)/MacOS/Dusk
 	cp Resources/Info.plist $(CONTENT)/Info.plist
+	cp Resources/AppIcon.icns $(CONTENT)/Resources/AppIcon.icns
 	cp scripts/install-sudoers.sh $(CONTENT)/Resources/install-sudoers.sh
 
 # Dusk needs no TCC permissions — brightness and pmset both work without them —
