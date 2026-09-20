@@ -53,8 +53,9 @@ copy you compile yourself is never quarantined, and never asks.
 | **Left click** the icon | On for 20 minutes, then the Mac sleeps. Click again to turn it off now. |
 | **Right click** (or two-finger click) | The menu: how long to stay awake, what to bring along, low-battery cutoff |
 
-The icon is the switch. `∠` outlined means off, orange means on, and a ring
-around it means a countdown is running.
+The icon is the switch — a laptop with a crescent moon on its screen. Black
+means off, indigo means on, and a ring around it means a countdown is
+running.
 
 ### The menu
 
