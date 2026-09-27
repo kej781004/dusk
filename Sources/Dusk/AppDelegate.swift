@@ -572,6 +572,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             autoOffTimer.cancel()
         }
+        // Reaching this menu meant raising the brightness to see it, which
+        // opened a peek. Only the countdown changed here, so nothing else
+        // would put the screen back until that peek ran out on its own.
+        controller.takeScreenBack()
         refreshStatusItem()
     }
 
@@ -624,6 +628,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             self.changeInFlight = false
             if case .failure(let error) = result { self.presentError(error) }
+            // Same peek as the countdown menu leaves behind: flipping low power
+            // mode moves nothing on screen, so without this the brightness stays
+            // up until the window expires. A no-op when the rider that just
+            // changed was the dark one, since that has already moved the screen.
+            self.controller.takeScreenBack()
             self.refreshStatusItem()
         }
     }

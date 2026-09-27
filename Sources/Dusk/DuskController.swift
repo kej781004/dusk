@@ -307,6 +307,25 @@ final class DuskController {
         peekStartedAt = nil
     }
 
+    /// Cuts a peek short and takes the screen back now.
+    ///
+    /// Every trip through the menu starts a peek, because the menu bar cannot
+    /// be aimed at while the screen is at zero — reaching it at all means
+    /// reaching for the brightness key first. So a menu action that does not
+    /// itself touch the screen used to leave it bright for the rest of the
+    /// window, which reads as the dark switch having quietly stopped working:
+    /// measured at 121 seconds between choosing "Until Turned Off" and the
+    /// screen finally going back down.
+    ///
+    /// Having chosen something in the menu is the signal that the looking is
+    /// over. A further brightness key press still opens a fresh peek, so this
+    /// takes nothing away from the escape hatch.
+    func takeScreenBack() {
+        guard state.dark, peekStartedAt != nil else { return }
+        endPeek()
+        startRamp(to: 0, over: Self.dimDuration)
+    }
+
     // MARK: - Sleep and wake
 
     /// The bug this app shipped with: nothing here at all.
