@@ -3,7 +3,7 @@
 A macOS menu bar app that **keeps your Mac awake with the lid closed.**
 
 Close the lid, keep working on an external monitor. Or close it and let a
-download, a render, or a backup finish. A left click keeps the Mac up for 20
+download, a render, or a backup finish. A left click keeps the Mac up for 15
 minutes and then puts it to sleep, so a lid propped open for one task does not
 stay open all night.
 
@@ -50,7 +50,7 @@ copy you compile yourself is never quarantined, and never asks.
 
 | Action | Result |
 |---|---|
-| **Left click** the icon | On for 20 minutes, then the Mac sleeps. Click again to turn it off now. |
+| **Left click** the icon | On for 15 minutes, then the Mac sleeps. Click again to turn it off now. |
 | **Right click** (or two-finger click) | The menu: how long to stay awake, what to bring along, low-battery cutoff |
 
 The icon is the switch — a laptop with a crescent moon on its screen. Black

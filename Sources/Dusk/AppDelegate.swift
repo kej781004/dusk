@@ -14,7 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let darkPreferenceKey = "engageDark"
     private let durationOptions = [15, 30, 60, 120]
     /// How long a left click keeps Dusk on.
-    private let clickTimerMinutes = 20
+    private let clickTimerMinutes = 15
     /// Time given to DuskController's 0.8s restore fade before the Mac is put
     /// to sleep at the end of a countdown.
     private static let sleepSettleDelay: TimeInterval = 1.0
