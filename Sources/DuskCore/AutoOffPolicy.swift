@@ -37,10 +37,7 @@ public enum AutoOffPolicy {
            isBelowFloor(percent: percent, onAC: onAC, threshold: threshold) {
             return .suspend
         }
-        // Capped at a full battery: the threshold is a slider now, and a floor set
-        // near the top would otherwise ask for a charge above 100% before Dusk
-        // could ever come back — one suspension and it would never resume.
-        if suspended, onAC, percent >= min(threshold + hysteresis, 100) {
+        if suspended, onAC, percent >= resumeLevel(threshold: threshold, hysteresis: hysteresis) {
             return .resume
         }
         return .none
@@ -58,5 +55,16 @@ public enum AutoOffPolicy {
     /// AC ends it, so auto-off re-arms for the next one.
     public static func shouldKeepOverride(_ overridden: Bool, onAC: Bool) -> Bool {
         overridden && !onAC
+    }
+
+    /// The charge at which a suspended Dusk comes back on: the floor plus the
+    /// hysteresis. Exposed so the popover can say "resumes past 25%" from the
+    /// same number `decide` acts on, rather than a second copy that could drift.
+    ///
+    /// Capped at a full battery: the threshold is a slider, and a floor set near
+    /// the top would otherwise ask for a charge above 100% before Dusk could
+    /// ever come back — one suspension and it would never resume.
+    public static func resumeLevel(threshold: Int, hysteresis: Int = 5) -> Int {
+        min(threshold + hysteresis, 100)
     }
 }

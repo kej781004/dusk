@@ -445,4 +445,41 @@ Check.test("a duration finds its stop, or the nearest one") {
     Check.equal(DurationScale.stop(forMinutes: 1000), 23)
 }
 
+print("CountdownFormat")
+
+Check.test("minutes and seconds under an hour") {
+    Check.equal(CountdownFormat.string(seconds: 720), "12:00")
+    Check.equal(CountdownFormat.string(seconds: 59), "0:59")
+}
+
+Check.test("hours once there are any") {
+    Check.equal(CountdownFormat.string(seconds: 3900), "1:05:00")
+}
+
+Check.test("rounds up, so time still left never reads 0:00") {
+    Check.equal(CountdownFormat.string(seconds: 0.2), "0:01")
+    Check.equal(CountdownFormat.string(seconds: 3599.4), "1:00:00")
+}
+
+Check.test("a countdown already over reads 0:00, never negative") {
+    Check.equal(CountdownFormat.string(seconds: 0), "0:00")
+    Check.equal(CountdownFormat.string(seconds: -5), "0:00")
+}
+
+print("AutoOffPolicy.resumeLevel")
+
+Check.test("resumes five points above the floor") {
+    Check.equal(AutoOffPolicy.resumeLevel(threshold: 20), 25)
+}
+
+Check.test("never asks for more than a full battery") {
+    Check.equal(AutoOffPolicy.resumeLevel(threshold: 98), 100)
+    Check.equal(AutoOffPolicy.resumeLevel(threshold: 100), 100)
+}
+
+Check.test("decide resumes exactly at the resume level, not before") {
+    Check.equal(AutoOffPolicy.decide(intent: true, suspended: true, percent: 24, onAC: true, threshold: 20), .none)
+    Check.equal(AutoOffPolicy.decide(intent: true, suspended: true, percent: 25, onAC: true, threshold: 20), .resume)
+}
+
 Check.summarize()
