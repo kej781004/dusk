@@ -7,13 +7,17 @@ CONTENT := $(APP)/Contents
 VERSION := $(shell /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/Info.plist)
 ZIP     := Dusk-$(VERSION)-macos-arm64.zip
 
-.PHONY: all check build bundle sign install run stop clean release
+.PHONY: all check preview build bundle sign install run stop clean release
 
 all: install
 
 # Verification runs as a plain executable; XCTest ships with Xcode.
 check:
 	swift run DuskCheck
+
+# Renders the popover in every state, and the icons, to .build/preview/.
+preview:
+	swift run DuskPreview .build/preview
 
 build:
 	swift build -c release
