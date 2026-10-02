@@ -187,7 +187,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// either kind only closes it.
     @objc private func handleClick() {
         if popover.isVisible || popover.wasJustDismissed {
-            popover.dismiss()
+            popover.dismiss("icon click")
             return
         }
 

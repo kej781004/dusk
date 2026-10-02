@@ -20,4 +20,5 @@ enum Log {
     static let power = Logger(subsystem: subsystem, category: "power")
     static let battery = Logger(subsystem: subsystem, category: "battery")
     static let notify = Logger(subsystem: subsystem, category: "notify")
+    static let ui = Logger(subsystem: subsystem, category: "ui")
 }

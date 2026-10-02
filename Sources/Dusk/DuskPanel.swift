@@ -16,6 +16,7 @@ final class DuskPanel: NSPanel {
     private let model: PopoverModel
     private var outsideClicks: Any?
     private var escapeKey: Any?
+    private var appSwitch: NSObjectProtocol?
     private var dismissedAt = Date.distantPast
     private var isDismissing = false
 
@@ -59,10 +60,12 @@ final class DuskPanel: NSPanel {
         makeKeyAndOrderFront(nil)
         invalidateShadow()
         watchForDismissal()
+        Log.ui.notice("popover opened at \(NSStringFromRect(self.frame), privacy: .public), key=\(self.isKeyWindow, privacy: .public)")
     }
 
-    func dismiss() {
+    func dismiss(_ reason: String = "app") {
         guard isVisible, !isDismissing else { return }
+        Log.ui.notice("popover closed: \(reason, privacy: .public)")
         isDismissing = true
         defer { isDismissing = false }
         stopWatching()
@@ -72,22 +75,24 @@ final class DuskPanel: NSPanel {
         onClose()
     }
 
-    /// A click into any other app moves key focus there.
-    override func resignKey() {
-        super.resignKey()
-        dismiss()
-    }
-
-    /// Clicks on the desktop or another app's menu bar item take no focus, so
-    /// they are watched for directly; Esc arrives as a key event to this panel.
+    /// Clicks anywhere outside, and switching to another app, are watched for
+    /// directly; Esc arrives as a key event to this panel. Losing key focus is
+    /// deliberately not a signal: the app in front can take key back on its own
+    /// — measured: a window updating in the front app closed the popover 1.2s
+    /// after it opened, with no click at all.
     private func watchForDismissal() {
         stopWatching()
+        appSwitch = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.dismiss("app switch") }
+        }
         outsideClicks = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
-            MainActor.assumeIsolated { self?.dismiss() }
+            MainActor.assumeIsolated { self?.dismiss("outside click") }
         }
         escapeKey = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard event.keyCode == 53 else { return event }   // Esc
-            MainActor.assumeIsolated { self?.dismiss() }
+            MainActor.assumeIsolated { self?.dismiss("escape") }
             return nil
         }
     }
@@ -95,6 +100,8 @@ final class DuskPanel: NSPanel {
     private func stopWatching() {
         if let outsideClicks { NSEvent.removeMonitor(outsideClicks) }
         if let escapeKey { NSEvent.removeMonitor(escapeKey) }
+        if let appSwitch { NSWorkspace.shared.notificationCenter.removeObserver(appSwitch) }
+        appSwitch = nil
         outsideClicks = nil
         escapeKey = nil
     }
