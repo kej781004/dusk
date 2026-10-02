@@ -5,7 +5,7 @@ import AppKit
 /// design/reference-crops/).
 ///
 ///   off              dark chip, laptop drawn as an outline, moon solid
-///   on               indigo chip, laptop filled white, moon knocked out of it
+///   on               porcelain chip, ink laptop, moon knocked back out in the chip colour
 ///   + countdown      either chip with a ring badge at the corner
 ///
 /// The chip matters as much as the drawing on it. An earlier version put a
@@ -19,7 +19,7 @@ import AppKit
 /// alpha channel — the chip underneath is opaque, so there is nothing to see
 /// through, and paint is simpler than a transparency layer. That also means
 /// none of these are template images: they carry their own colour.
-enum StatusIcon {
+public enum StatusIcon {
     private static let size = NSSize(width: 18, height: 18)
     /// Keeps the chip off the very edge of the status item, the way the
     /// system's own icons sit with a little air around them.
@@ -64,7 +64,11 @@ enum StatusIcon {
     private static let strokeWeight: CGFloat = 3.0
     private static let badge = (cx: 76.0, cy: 71.5, r: 13.5, ring: 4.7)
 
-    private static let indigo = NSColor(srgbRed: 74.0 / 255, green: 58.0 / 255, blue: 250.0 / 255, alpha: 1)
+    /// The "on" chip. Warm white rather than pure white, so it sits with the
+    /// popover's ink instead of glaring next to it.
+    private static let porcelain = NSColor(srgbRed: 0.949, green: 0.945, blue: 0.933, alpha: 1)
+    /// What is drawn on the porcelain chip: the laptop and the countdown ring.
+    private static let ink = NSColor(srgbRed: 0.055, green: 0.055, blue: 0.063, alpha: 1)
     private static let graphite = NSColor(srgbRed: 28.0 / 255, green: 28.0 / 255, blue: 30.0 / 255, alpha: 1)
 
     /// All four glyphs are constant, and `refreshStatusItem` runs on every
@@ -75,7 +79,7 @@ enum StatusIcon {
     private static let idleTimerImage = draw(active: false, timer: true)
     private static let idleImage = draw(active: false, timer: false)
 
-    static func image(active: Bool, timer: Bool) -> NSImage {
+    public static func image(active: Bool, timer: Bool) -> NSImage {
         switch (active, timer) {
         case (true, true): return activeTimerImage
         case (true, false): return activeImage
@@ -126,8 +130,9 @@ enum StatusIcon {
     // MARK: - Drawing
 
     private static func draw(active: Bool, timer: Bool) -> NSImage {
-        let chip = (active ? indigo : graphite).cgColor
-        let white = NSColor.white.cgColor
+        let chip = (active ? porcelain : graphite).cgColor
+        // Drawn on the chip: ink on porcelain when on, white on graphite when off.
+        let white = (active ? ink : NSColor.white).cgColor
         let image = NSImage(size: size, flipped: false) { _ in
             guard let ctx = NSGraphicsContext.current?.cgContext else { return false }
 
@@ -157,7 +162,7 @@ enum StatusIcon {
             // The moon reads against whatever it sits on: the chip's own colour
             // where the screen is filled white, white where the screen is left
             // dark.
-            drawMoon(in: ctx, color: active ? indigo : .white)
+            drawMoon(in: ctx, color: active ? porcelain : .white)
 
             if timer {
                 // A gap in the chip's colour first, so the ring reads as a badge

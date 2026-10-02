@@ -1,6 +1,7 @@
 import AppKit
 import UserNotifications
 import DuskCore
+import DuskUI
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
