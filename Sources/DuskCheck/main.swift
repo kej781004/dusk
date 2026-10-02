@@ -395,4 +395,54 @@ Check.test("a peek that the user themselves took to black still re-dims on time"
     Check.equal(decide(level: 0.0, since: 0.02, elapsed: peek), .redim)
 }
 
+print("DurationScale")
+
+Check.test("25 stops: five-minute steps to an hour, fifteen to four, then until-off") {
+    Check.equal(DurationScale.count, 25)
+    Check.equal(DurationScale.minutes(atStop: 0), 5)
+    Check.equal(DurationScale.minutes(atStop: 11), 60)
+    Check.equal(DurationScale.minutes(atStop: 12), 75)
+    Check.equal(DurationScale.minutes(atStop: 23), 240)
+    Check.equal(DurationScale.minutes(atStop: 24), nil)
+}
+
+Check.test("every label sits on the stop it names") {
+    let expected: [String: Int?] = ["5m": 5, "30m": 30, "1h": 60, "2h": 120, "4h": 240, "∞": nil]
+    Check.equal(DurationScale.labels.count, 6)
+    for label in DurationScale.labels {
+        Check.equal(DurationScale.minutes(atStop: label.index), expected[label.text]!, label.text)
+    }
+}
+
+Check.test("the ends of the ruler are the first and last stops") {
+    Check.close(Float(DurationScale.fraction(forStop: 0)), 0)
+    Check.close(Float(DurationScale.fraction(forStop: 24)), 1)
+    Check.close(Float(DurationScale.fraction(forStop: 12)), 0.5)
+}
+
+Check.test("a drag snaps to the nearer stop either side of the midpoint") {
+    let gap = 1.0 / 24.0
+    Check.equal(DurationScale.nearestStop(toFraction: 5 * gap + gap * 0.49), 5)
+    Check.equal(DurationScale.nearestStop(toFraction: 5 * gap + gap * 0.51), 6)
+}
+
+Check.test("a drag past either end clamps instead of running off") {
+    Check.equal(DurationScale.nearestStop(toFraction: -0.4), 0)
+    Check.equal(DurationScale.nearestStop(toFraction: 1.7), 24)
+}
+
+Check.test("every stop survives a round trip through its position") {
+    for i in 0..<DurationScale.count {
+        Check.equal(DurationScale.nearestStop(toFraction: DurationScale.fraction(forStop: i)), i, "stop \(i)")
+    }
+}
+
+Check.test("a duration finds its stop, or the nearest one") {
+    Check.equal(DurationScale.stop(forMinutes: 15), 2)
+    Check.equal(DurationScale.stop(forMinutes: 120), 15)
+    Check.equal(DurationScale.stop(forMinutes: nil), 24)
+    Check.equal(DurationScale.stop(forMinutes: 1), 0)
+    Check.equal(DurationScale.stop(forMinutes: 1000), 23)
+}
+
 Check.summarize()
