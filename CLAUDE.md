@@ -12,7 +12,7 @@ Awayke(https://github.com/daemonphantom/Awayke)를 대신하는 자작 메뉴바
 ## 핵심 구조
 - **본체는 `pmset -a disablesleep`이다.** 뚜껑 닫힘 전용 잠자기 경로는 이것만 듣는다 —
   `caffeinate`나 디스플레이 어서션으로는 못 막는다. `lowpowermode`는 **이것과 무관**(그냥 배터리 절약).
-- 좌클릭 = 켜기/끄기(아이콘이 그 자체), 우클릭 = 메뉴(저전력 모드·화면 어둡게 스위치, 타이머, 배터리 자동 끄기).
+- 좌클릭 = 켜기/끄기(아이콘이 그 자체), 우클릭 = 팝오버(SwiftUI, `DuskUI` 타깃 · 저전력 모드·화면 어둡게 스위치, 타이머, 배터리 자동 끄기).
 - 밝기 제어는 `DisplayServices` 비공개 프레임워크(dlopen) — 권한 불필요, ad-hoc 서명으로 충분.
   Awayke의 SMAppService 헬퍼는 정식 Developer ID가 필요해서 이 맥에선 못 씀.
 - 진단 로그: `Sources/Dusk/Log.swift`, subsystem `parkchanbin.Dusk`.

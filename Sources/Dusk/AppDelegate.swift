@@ -13,9 +13,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let thresholdDefaultsKey = "autoOffThreshold"
     private let lowPowerPreferenceKey = "engageLowPower"
     private let darkPreferenceKey = "engageDark"
-    private let durationOptions = [15, 30, 60, 120]
     /// How long a left click keeps Dusk on.
     private let clickTimerMinutes = 15
+    private let popoverModel = PopoverModel()
+    private lazy var popover = DuskPanel(model: popoverModel)
+    /// Minutes of the countdown now running, for the ruler's needle.
+    private var armedMinutes: Int?
+    private let lastMinutesKey = "lastKeepAwakeMinutes"
+    /// The duration last chosen on the ruler, where its needle rests when
+    /// nothing is running. Persisted.
+    private var lastMinutes: Int {
+        get { UserDefaults.standard.object(forKey: lastMinutesKey) as? Int ?? clickTimerMinutes }
+        set { UserDefaults.standard.set(newValue, forKey: lastMinutesKey) }
+    }
     /// Time given to DuskController's 0.8s restore fade before the Mac is put
     /// to sleep at the end of a countdown.
     private static let sleepSettleDelay: TimeInterval = 1.0
@@ -52,9 +62,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var changeInFlight = false
     /// Set once the sudoers rule has been confirmed, so the prompt appears once.
     private var hasPrivilege = false
-    /// The menu while it is on screen, so a switch can close it before doing
-    /// anything that might need a modal.
-    private weak var activeMenu: NSMenu?
 
     /// Low-battery floor; 0 disables the feature. Persisted.
     private var threshold: Int {
@@ -137,6 +144,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         controller.onChange = { [weak self] in self?.refreshStatusItem() }
+        wirePopover()
         refreshStatusItem()
 
         // Recovery from crash / force-kill: pmset settings and the backlight level
@@ -173,22 +181,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Clicks
 
-    /// Left click is the only thing that turns Dusk on or off; right click (a
-    /// two-finger click on the trackpad) opens the menu, where the riders are
-    /// settings that say what "on" should bring with it.
+    /// Left click turns Dusk on or off; right click (a two-finger click on the
+    /// trackpad) opens the popover, where the riders are settings that say what
+    /// "on" should bring with it. While the popover is up, a click on the icon of
+    /// either kind only closes it.
     @objc private func handleClick() {
+        if popover.isVisible || popover.wasJustDismissed {
+            popover.dismiss()
+            return
+        }
+
         let event = NSApp.currentEvent
-        let wantsMenu = event?.type == .rightMouseUp
+        let wantsPopover = event?.type == .rightMouseUp
             || event?.modifierFlags.contains(.control) == true
 
-        if wantsMenu {
-            showMenu()
+        if wantsPopover {
+            showPopover()
         } else if effectiveActive {
             setIntent(false)
         } else {
-            // A left click turns on in timer mode, the same countdown the
-            // "Keep Awake For" presets run. "Until Turned Off" in the menu is
-            // still there for an indefinite on.
+            // A left click turns on in timer mode, the same countdown the ruler
+            // runs. Its far end, ∞, is there for an indefinite on.
             setIntent(true, timerMinutes: clickTimerMinutes)
         }
     }
@@ -252,6 +265,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// screen at the same moment as the modal sudoers alert on a fresh install.
     private func startCountdown(minutes: Int) {
         requestNotificationAuthorization()
+        armedMinutes = minutes
         autoOffTimer.start(minutes: minutes)
     }
 
@@ -449,98 +463,91 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    // MARK: - Menu
+    // MARK: - Popover
 
-    private func showMenu() {
-        let menu = NSMenu()
-
-        let stateTitle: String
-        if suspendedForBattery {
-            stateTitle = "paused (battery low)"
-        } else if !effectiveActive {
-            stateTitle = "off"
-        } else if let remaining = autoOffTimer.remaining {
-            stateTitle = "on — \(formatRemaining(remaining)) left"
-        } else {
-            stateTitle = "on"
-        }
-        let stateItem = NSMenuItem(title: "Dusk: \(stateTitle)", action: nil, keyEquivalent: "")
-        stateItem.isEnabled = false
-        menu.addItem(stateItem)
-
-        menu.addItem(.separator())
-        menu.addItem(keepAwakeSubmenuItem())
-        menu.addItem(autoOffSubmenuItem())
-
-        // The lid switch has no row of its own: not sleeping on a closed lid is
-        // what the app is, so it follows the icon rather than being a setting
-        // alongside the two that ride with it. These two are settings — they say
-        // what a left click should engage, and flipping one is not a left click.
-        menu.addItem(.separator())
-        menu.addItem(SwitchMenuItemView.item(title: "Low Power Mode",
-                                             isOn: engagesLowPower,
-                                             isEnabled: true) { [weak self] on in
+    private func wirePopover() {
+        popoverModel.clickMinutes = clickTimerMinutes
+        popoverModel.onCommitStop = { [weak self] stop in self?.commitRuler(stop) }
+        popoverModel.onSetLowPower = { [weak self] on in
             self?.setPreference { $0.engagesLowPower = on }
-        })
-        menu.addItem(SwitchMenuItemView.item(title: "Dim the Screen",
-                                             isOn: engagesDark,
-                                             isEnabled: controller.canDim) { [weak self] on in
-            self?.setPreference { $0.engagesDark = on }
-        })
-
-        menu.addItem(.separator())
-        // The only top-level item carrying an action: the submenu rows set their
-        // own target, and the switch rows are view items with no action at all.
-        let quitItem = NSMenuItem(title: "Quit Dusk", action: #selector(menuQuit), keyEquivalent: "q")
-        quitItem.target = self
-        menu.addItem(quitItem)
-
-        // A status item only pops its menu when one is attached, so attach it for
-        // the click and detach it afterwards to keep left clicks going to the action.
-        activeMenu = menu
-        statusItem.menu = menu
-        statusItem.button?.performClick(nil)
-        statusItem.menu = nil
-        activeMenu = nil
-    }
-
-    private func keepAwakeSubmenuItem() -> NSMenuItem {
-        let parent = NSMenuItem(title: "Keep Awake For", action: nil, keyEquivalent: "")
-        let submenu = NSMenu()
-
-        for value in durationOptions {
-            let item = NSMenuItem(title: durationLabel(value),
-                                  action: #selector(menuKeepAwakeFor(_:)), keyEquivalent: "")
-            item.target = self
-            item.tag = value
-            submenu.addItem(item)
+            self?.syncPopover()
         }
-
-        submenu.addItem(.separator())
-
-        // Tag 0 means "no countdown" — on until turned off.
-        let indefinite = NSMenuItem(title: "Until Turned Off",
-                                    action: #selector(menuKeepAwakeFor(_:)), keyEquivalent: "")
-        indefinite.target = self
-        indefinite.tag = 0
-        indefinite.state = (effectiveActive && !autoOffTimer.isRunning) ? .on : .off
-        submenu.addItem(indefinite)
-
-        parent.submenu = submenu
-        return parent
+        popoverModel.onSetDim = { [weak self] on in
+            self?.setPreference { $0.engagesDark = on }
+            self?.syncPopover()
+        }
+        popoverModel.onSetThreshold = { [weak self] value in
+            self?.setThreshold(value)
+            self?.syncPopover()
+        }
+        popoverModel.onQuit = { NSApp.terminate(nil) }
+        popover.onClose = { [weak self] in
+            // Reaching the popover with the screen at zero meant pressing the
+            // brightness key first, which opened a peek. Closing is the sign the
+            // looking is done. Ending the peek per action instead would black the
+            // screen out from under a popover that stays open across a toggle.
+            self?.controller.takeScreenBack()
+        }
     }
 
-    private func autoOffSubmenuItem() -> NSMenuItem {
-        let parent = NSMenuItem(title: "Turn Off When Battery Is Low", action: nil, keyEquivalent: "")
-        let submenu = NSMenu()
-        // The submenu holds nothing but the slider, which reports only when the
-        // drag ends — a threshold committed on every step would re-evaluate the
-        // battery, and a pmset round-trip per pixel of travel.
-        submenu.addItem(ThresholdSliderView.item(value: threshold) { [weak self] value in
-            self?.setThreshold(value)
-        })
-        parent.submenu = submenu
-        return parent
+    private func showPopover() {
+        guard let button = statusItem.button else { return }
+        syncPopover()
+        popover.show(below: button)
+    }
+
+    /// Pushes the machine's state into the popover. Runs wherever the icon is
+    /// refreshed, so an open popover follows changes — a countdown that runs
+    /// out while it is up turns it to Off. Each value is set only when it
+    /// changed, so a refresh with nothing new republishes nothing.
+    private func syncPopover() {
+        let phase: PopoverModel.Phase
+        if suspendedForBattery {
+            phase = .paused
+        } else if !effectiveActive {
+            phase = .off
+        } else if let deadline = autoOffTimer.deadline {
+            phase = .countingDown(until: deadline)
+        } else {
+            phase = .indefinite
+        }
+        let resting: Int
+        switch phase {
+        case .countingDown: resting = DurationScale.stop(forMinutes: armedMinutes ?? lastMinutes)
+        case .indefinite: resting = DurationScale.lastIndex
+        case .off, .paused: resting = DurationScale.stop(forMinutes: lastMinutes)
+        }
+        if popoverModel.phase != phase { popoverModel.phase = phase }
+        if popoverModel.restingStop != resting { popoverModel.restingStop = resting }
+        if popoverModel.lowPower != engagesLowPower { popoverModel.lowPower = engagesLowPower }
+        if popoverModel.dim != engagesDark { popoverModel.dim = engagesDark }
+        if popoverModel.canDim != controller.canDim { popoverModel.canDim = controller.canDim }
+        if popoverModel.threshold != threshold { popoverModel.threshold = threshold }
+    }
+
+    /// A duration chosen on the ruler. The popover closes first — that ends the
+    /// peek — and the change lands on the next pass of the run loop, so a
+    /// privilege prompt or an error comes up in front of everything.
+    private func commitRuler(_ stop: Int) {
+        let minutes = DurationScale.minutes(atStop: stop)
+        if let minutes { lastMinutes = minutes }
+        popover.dismiss()
+        DispatchQueue.main.async { [weak self] in self?.keepAwake(for: minutes) }
+    }
+
+    /// Keep awake for `minutes`, or with no limit when nil. Already on: only the
+    /// countdown moves, skipping a pmset round-trip to a state already set.
+    private func keepAwake(for minutes: Int?) {
+        guard effectiveActive else {
+            setIntent(true, timerMinutes: minutes)
+            return
+        }
+        if let minutes {
+            startCountdown(minutes: minutes)
+        } else {
+            autoOffTimer.cancel()
+        }
+        refreshStatusItem()
     }
 
     private func durationLabel(_ minutes: Int) -> String {
@@ -556,28 +563,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         durationLabel(max(1, Int((seconds / 60).rounded(.up))))
     }
 
-    // MARK: - Menu actions
-
-    @objc private func menuKeepAwakeFor(_ sender: NSMenuItem) {
-        let minutes = sender.tag
-
-        // Already on: just (re)arm the countdown, skipping a pmset round-trip that
-        // would set a state the system is already in.
-        guard effectiveActive else {
-            setIntent(true, timerMinutes: minutes > 0 ? minutes : nil)
-            return
-        }
-
-        if minutes > 0 {
-            startCountdown(minutes: minutes)
-        } else {
-            autoOffTimer.cancel()
-        }
-        // Only the countdown changed, so nothing else would end the peek that
-        // reaching this menu opened.
-        controller.takeScreenBack()
-        refreshStatusItem()
-    }
+    // MARK: - Settings
 
     private func setThreshold(_ value: Int) {
         guard value != threshold else { return }
@@ -594,10 +580,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// `intent` is never touched: no flip of these can turn Dusk on or off.
     ///
     /// If Dusk is already running the change also lands on the machine now, which
-    /// is what the switch moving under the pointer promises. The menu closes first
-    /// and the work happens on the next pass of the run loop — applying it inline
-    /// would run inside menu tracking, where a modal (the privilege prompt, or an
-    /// error from a failed `pmset`) has no reliable way to come up.
+    /// is what the switch moving under the pointer promises. The popover stays
+    /// open; the work happens on the next pass of the run loop, and anything in
+    /// it that needs a modal closes the popover first.
     private func setPreference(_ change: (AppDelegate) -> Void) {
         change(self)
 
@@ -605,7 +590,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let target = engagedState
         guard target != controller.state else { return }
 
-        activeMenu?.cancelTracking()
         DispatchQueue.main.async { [weak self] in
             self?.applyRiders(target)
         }
@@ -619,6 +603,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let needsRoot = target.lowPower && !controller.state.lowPower
         if needsRoot, !hasPrivilege {
+            popover.dismiss()
             withPrivilege { [weak self] in self?.applyRiders(target) }
             return
         }
@@ -628,14 +613,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             self.changeInFlight = false
             if case .failure(let error) = result { self.presentError(error) }
-            // Flipping low power mode moves nothing on screen either. A no-op
-            // when the dark rider changed, since that already moved the screen.
-            self.controller.takeScreenBack()
             self.refreshStatusItem()
         }
     }
-
-    @objc private func menuQuit() { NSApp.terminate(nil) }
 
     // MARK: - Privilege
 
@@ -652,6 +632,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func offerPrivilegeSetup(completion: @escaping (Bool) -> Void) {
+        // A modal must never come up behind the floating popover.
+        popover.dismiss()
         let alert = NSAlert()
         alert.messageText = "Dusk needs your permission, once"
         alert.informativeText = """
@@ -761,6 +743,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             button.toolTip = "Dusk off. Click to stay awake for \(clickTimerMinutes) minutes."
         }
+        syncPopover()
     }
 
     private func presentError(_ error: Error) {
@@ -768,6 +751,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func present(title: String, body: String) {
+        popover.dismiss()
         let alert = NSAlert()
         alert.messageText = title
         alert.informativeText = body

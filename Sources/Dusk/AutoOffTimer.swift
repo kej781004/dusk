@@ -28,7 +28,7 @@ final class AutoOffTimer {
     /// retried.
     private static let tickInterval: TimeInterval = 15
 
-    private var deadline: Date?
+    private(set) var deadline: Date?
     private var ticker: Timer?
 
     var isRunning: Bool { deadline != nil }

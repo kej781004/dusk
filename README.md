@@ -51,21 +51,22 @@ copy you compile yourself is never quarantined, and never asks.
 | Action | Result |
 |---|---|
 | **Left click** the icon | On for 15 minutes, then the Mac sleeps. Click again to turn it off now. |
-| **Right click** (or two-finger click) | The menu: how long to stay awake, what to bring along, low-battery cutoff |
+| **Right click** (or two-finger click) | The popover: a duration ruler, what to bring along, low-battery cutoff |
 
-The icon is the switch — a laptop with a crescent moon on its screen. Black
-means off, indigo means on, and a ring around it means a countdown is
+The icon is the switch — a laptop with a crescent moon on its screen. A dark
+chip means off, a white chip means on, and a ring means a countdown is
 running.
 
-### The menu
+### The popover
 
-- **Keep Awake For** — 15 / 30 / 60 / 120 minutes, or **Until Turned Off** for
+- **Keep awake for** — drag the ruler and let go: 5 minutes to an hour in
+  five-minute steps, then to four hours in fifteen, or **∞** at the far end for
   no countdown at all. Countdowns are wall-clock, so they stay honest if the
   Mac sleeps and wakes partway through.
 - **Low Power Mode** and **Dim the Screen** — these are *settings*, not
   switches. They decide what turning Dusk on brings with it. Flipping one never
   turns Dusk on or off.
-- **Turn Off When Battery Is Low** — a slider, 0 to 100% in steps of 5; 0
+- **Turn off below** — a battery slider, 0 to 100% in steps of 5; 0
   disables it. Below the line, Dusk switches off and tells you. It comes back
   once charging passes the threshold **+5%** (so it does not flicker at the
   boundary), capped at 100% so a threshold near full never waits for a charge
